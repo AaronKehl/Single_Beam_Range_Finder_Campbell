@@ -1,2 +1,2 @@
-# Single_Beam_Range_Finder
+# Single_Beam_Range_Finder_Campbell
  Tracks distance from a surface, to identify water depth and etc...
