@@ -6,6 +6,8 @@ Hardware Dependencies:
 2. Trusense S200 Range Finder
 3. G-NSDOG2-003 ±90° Inclinometer
 4. NAL Research 9602-N ISBD Modem
+5. NAL Research SAF2040-B ISBD Antenna
+6. 12V Power Supply/Source
 
 Optional Hardware:
 1. Level Troll-400H Pressure Transducer
