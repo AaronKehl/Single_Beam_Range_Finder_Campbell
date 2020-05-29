@@ -1063,7 +1063,7 @@ BeginProg
   ' So make sure to recomment out commands after using them  and reupload
   ' or each will be performed on every startup of the datalogger. 
   ' Examples:
-  '  findPressureTransducer()    'Should update pressAddr as needed (global)
+  '  findPressureTransducer()    'You should update pressAddr as needed (global)
   '  addrPressureTransducer(0,2) 'Update pressAddr constant after changing sdi address
   '  calibPressureTransducer()   'Make sure settings are correct when doing this
   
