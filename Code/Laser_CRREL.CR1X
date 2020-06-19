@@ -32,26 +32,42 @@
 '================================ Setup ===================================
 '-------------------------- Global Variables ------------------------------
 'System Variables for Public tracking
-Public sysStatus As String * 45
-Public iridStatus As String * 45
-Public laserStatus As String * 45
-Public inclinStatus As String * 45
+Public sysStatus As String * 60
+Public iridStatus As String * 60
+Public laserStatus As String * 60
+Public inclinStatus As String * 60
 Public pressStatus As String * 250
+Public ISBD_Message_BIN As String * 300
+Public ISBD_Message_HEX As String * 300
+Public ISBD_Message_ASCII As String * 500
+Public sendCalls1 = 0
+Public sendCalls2 = 0
 
 'Campbell System Variables
 Public forceRead, forceMessage, PTemp As Float, batt_volt As Float
-Const measInterval = 15        'Time interval to take measurements [min]
-Const sendInterval = 60        'Time interval to send ISBD messages [Min]
+Const measInterval = 60        'Time interval to take measurements [min]
+Const sendInterval = 60        'Time interval to send ISBD messages [min]
 Const OpenDate = 91            'April 1
 Const CloseDate = 304          'Oct 31
 Public rTime(9)                'declare as public and dimension rTime to 9
+Alias rTime(1) = Year          'assign the alias Year to rTime(1)
+Alias rTime(2) = Month         'assign the alias Month to rTime(2)
+Alias rTime(3) = DOM           'assign the alias DOM to rTime(3)
+Alias rTime(4) = Hour          'assign the alias Hour to rTime(4)
+Alias rTime(5) = Minute        'assign the alias Minute to rTime(5)
+Alias rTime(6) = Second        'assign the alias Second to rTime(6)
+Alias rTime(7) = uSecond       'assign the alias uSecond to rTime(7)
+Alias rTime(8) = WeekDay       'assign the alias WeekDay to rTime(8)
 Alias rTime(9) = Day_of_Year   'assign the alias Day_of_Year to rTime(9)
 
 'Iridium Variables
 Const Iridiumport = ComC3      'Datalogger's control ports C3 (TX) & C4 (RX)
 Const Iridiumpowerport = C5    'Power control switch port, used as 0V or 5V
-Const numvals = 6              'Number of variables packed into an ISBD Msg
-Public msgSuccess = 0          'Helps to decide if messages should be retried
+Const numvals = 10             'Number of variables packed into an ISBD Msg
+Const BYTES_1 = 1              'Used to clarify ISBD Message Readability
+Const BYTES_2 = 2              '                   ""
+Const BYTES_4 = 4              '                   ""
+Public msgSuccess = 1          'Helps to decide if messages should be retried
 
 'Trusense S200 Range Finder Variables
 Const Laserport = ComC1        'Datalogger's control ports C1 (TX) & C2 (RX)
@@ -88,73 +104,196 @@ DataTable( hourtab, 1, -1 )
   CardOut( 0, -1 )
   Minimum( 1, batt_volt, FP2, 0, 0 )
   Sample( 1, PTemp, FP2 )
-  Sample( 1, first, FP2 )
-  Sample( 1, strongest, FP2 )
-  Sample( 1, last, FP2 )
-  Sample( 1, x, FP2 )
-  Sample( 1, y, FP2 )
-  Sample( 1, pressPress, FP2 )
-  Sample( 1, pressTemp, FP2 )
-  Sample( 1, pressLevel, FP2 )
+  Sample( 1, first, IEEE4 )
+  Sample( 1, strongest, IEEE4 )
+  Sample( 1, last, IEEE4 )
+  Sample( 1, x, IEEE4 )
+  Sample( 1, y, IEEE4 )
+  Sample( 1, pressPress, IEEE4 )
+  Sample( 1, pressTemp, IEEE4 )
+  Sample( 1, pressLevel, IEEE4 )
 EndTable
 
 ' Write raw measurements into memory.
 DataTable( rawMeasurements, 1, -1 )
   CardOut( 0, -1 )
-  Sample( nLaserSamples, raw_first, FP2 )
-  Sample( nLaserSamples, raw_strongest, FP2 )
-  Sample( nLaserSamples, raw_last, FP2 )
-  Sample( nPressSamples, raw_pressPress, FP2 )
-  Sample( nPressSamples, raw_pressTemp, FP2 )
-  Sample( nPressSamples, raw_pressLevel, FP2 )
+  Sample( nLaserSamples, raw_first, IEEE4 )
+  Sample( nLaserSamples, raw_strongest, IEEE4 )
+  Sample( nLaserSamples, raw_last, IEEE4 )
+  Sample( nPressSamples, raw_pressPress, IEEE4 )
+  Sample( nPressSamples, raw_pressTemp, IEEE4 )
+  Sample( nPressSamples, raw_pressLevel, IEEE4 )
 EndTable
 '-------------------------- End of Data Tables ----------------------------
 '============================ End of Setup ================================
 
 '========================== Helper Subroutines ============================
-'---------------------------- toLong( Float ) -----------------------------
-' This Function converts a number to a positive integer for transfer by 
-' iridium, i.e. 12.14 becomes  2121  (add 200 then multiply by 10)
+'------------------------- toLong( Float, INT ) ---------------------------
+' This Function converts a Float to a Long Integer, using the number of
+' decimal places to determine how to convert.  This is for ISBD Messages.
+'
+' e.g. 1234.123 has 3 decimal places, so the long version returned by this
+'   function would be 1234123
 '
 ' INPUTS: floatval = the float value to be converted
-' OUTPUTS: Integer representation of floatval +200 and *10
+'    decimalPlaces = the number of decimal places in the float value
+' OUTPUTS: Long integer version of the float value.
 '
-Function toLong( floatval As Float )
-  Return( FIX( ( floatval + 200 ) * 10 ) )
-End Function
-'------------------------- End of toLong( Float ) -------------------------
+'    ** Note: Requires post processing to return to a float value. **
+'
+Function toLong( floatval As Float, decimalPlaces )
+  Dim multiplier, result As Long, i
+  multiplier = 1
 
-'---------------------------- toUTC( String ) -----------------------------
+  Select Case decimalPlaces
+    Case 1 To 4
+      For i = 1 To decimalPlaces Step 1
+        multiplier *= 10
+      Next i
+    Case Else
+      multiplier = 1
+  EndSelect
+  
+  result = FIX( floatval * multiplier )
+  Return( result )
+End Function
+'---------------------- End of toLong( Float, INT ) -----------------------
+
+'--------------------------- isLeapYear( INT ) ----------------------------
+' This function will determine whether it is a leap year or not.
+'
+' INPUTS: year_in_question = integer representation of the year to be eval.
+' OUTPUTS: 0 = Not a leapyear
+'          1 = A leapyear
+Function isLeapYear( year_in_question )
+  'Determine whether it is a leap year or not
+  If year_in_question MOD 4 = 0 Then 
+    If year_in_question MOD 400 = 0 OR year_in_question MOD 100 <> 0 Then
+      Return 1
+    Else
+      Return 0
+    EndIf
+  Else
+    Return 0
+  EndIf
+End Function
+'------------------------ End of isLeapYear( INT ) ------------------------
+
+'----------------------- updateTimestamp( String ) ------------------------
 ' This function will convert an Ascii hexadecimal string containing
 ' 90ms intervals from iridium epoch, into UTC to assist with updating
 ' the system time clock of the Campbell Datalogger.
 '
 ' INPUTS: val = hexidecimal string 90ms intervals from epoch.
-' OUTPUTS: timestamp = formatted as expected by ClockSet( val(7) )
+' OUTPUTS: N/A
 '
-Function toUTC( val As String )
-  Dim timestamp(7), time As Float, hour As Float
-  Dim minute As Float, second As Float, uSecond As Float
+'        ** epoch: May 11, 2014, at 14:23:55 **
+'
+' Jan: 31, Feb: 28(or 29), Mar: 31, Apr: 30, May: 31, Jun: 30
+' Jul: 31, Aug: 31, Sep: 30, Oct: 31, Nov: 30, Dec: 31
+Sub updateTimestamp( val As String )
+  Dim clockValues(7), frames_since_epoch As Double
+  Dim days_in_year, utcDOY As Long, utcYear As Long, found
+  Dim daysInMonths(12), utcDOM As Long, utcMOY As Long, index
+  Dim utcHour As Float, utcMinute As Float, utcSecond As Float
+  Dim utcUSecond As Float
   
-  time = HexToDec( val ) * 0.09     '[s] since epoch
+  'Process the number of 90ms frames from the epoch into 1s frames
+  frames_since_epoch = HexToDec( val )
+  frames_since_epoch = frames_since_epoch * 0.09
   
-  hour = ( (time / 86400) - Floor( time / 86400 ) ) * 24 
-  minute = ( hour - Floor( hour ) ) * 60
-  second = ( minute - Floor( minute ) ) * 60
-  uSecond = ( second - Floor( second ) ) * 1000000
+  'Calculate time of day from 90ms frames
+  utcHour = ( ( frames_since_epoch MOD 86400 ) / 86400 ) * 24
+  utcMinute = ( ( frames_since_epoch MOD 3600 ) / 3600 ) * 60
+  utcSecond = frames_since_epoch MOD 60
+  utcUSecond = ( frames_since_epoch * 1000000 ) MOD 1000000
+
+  'correct the values for the epoch start time 
+  utcSecond += 55
+  If utcSecond >= 60 Then utcSecond -= 60
+  utcMinute += 23
+  If utcMinute >= 60 Then utcMinute -= 60
+  utcHour += 14
+  If utcHour >= 24 Then utcHour -= 24
+
+  '////////////////////// Find Year and Day of Year ///////////////////////
+  'Subtract remaining days in 2014 (from epoch)
+  'Begin the find year process in the year 2015
+  utcDOY = Floor( ( frames_since_epoch / 86400 ) - 234 )
+  utcYear = 2015
+  found = 0
   
-  RealTime( rTime )
-  timestamp(1) = rTime(1)           '[year]
-  timestamp(2) = rTime(2)           '[month] of year
-  timestamp(3) = rTime(9)           '[day] of year
-  timestamp(4) = Floor( hour )      '[hr] of day
-  timestamp(5) = Floor( minute )    '[min] of hour
-  timestamp(6) = Floor( second )    '[s] of min
-  timestamp(7) = Floor( uSecond )   '[us] of second
+  'Find the Year and Day of Year.
+  ' loops through the years and subtracts the number of days of that
+  ' calendar year from the days since the epoch (adjusted to 2015)
+  ' until it tries to go negative.  Then the current year has been found
+  While found = 0
+    'Update days in the yaear based on which year we are evaluating
+    If isLeapYear( utcYear ) Then
+      days_in_year = 366
+    Else
+      days_in_year = 365
+    EndIf
+    
+    'Evaluate whether to increment 1 year or not
+    If utcDOY - days_in_year <= 0 Then
+      found = 1
+    Else 
+      utcDOY -= days_in_year
+      utcYear += 1
+    EndIf
+  Wend  
+  '/////////////////// End of Find Year and Day of Year ///////////////////
+
+  '////////////////// Find Month of Year and Day of Month /////////////////
+  'Generate an array with the number of days in each month
+  For index = 1 To 12 Step 1
+    Select Case index
+      Case 1, 3, 5, 7, 8, 10, 12
+        daysInMonths( index ) = 31
+      Case 4, 6, 9, 11
+        daysInMonths( index ) = 30
+      Case 2
+        If isLeapYear( utcYear ) Then
+          daysInMonths( index ) = 29
+        Else
+          daysInMonths( index ) = 28
+        EndIf
+    EndSelect
+  Next index
   
-  Return timestamp
-End Function
-'------------------------- End of toUTC( String ) -------------------------
+  'reset variables. Dim declares one time at initialization
+  'and does not overwrite on each function call.
+  found = 0
+  index = 1
+  utcDOM = utcDOY
+  
+  ' find and return the day of the month by subtracting 1 month
+  ' of days at a time, from the number passed into this function
+  While found = 0 AND index <= 12
+    If utcDOM - daysInMonths( index ) <= 0 Then
+      utcMOY = index
+      found = 1
+    Else 
+      utcDOM -= daysInMonths( index )
+      index += 1
+    EndIf
+  Wend
+  '///////////// End of Find Month of Year and Day of Month //////////////
+  
+  'prepare the variable to write to the clock
+  clockValues(1) = utcYear       '[year]
+  clockValues(2) = utcMOY        '[month] of year
+  clockValues(3) = utcDOM        '[day] of Month
+  clockValues(4) = Floor( utcHour )     '[hr] of day
+  clockValues(5) = Floor( utcMinute )   '[min] of hour
+  clockValues(6) = Floor( utcSecond )   '[s] of min
+  clockValues(7) = Floor( utcUSecond )  '[us] of second
+ 
+  'Update the system clock with the UTC timestamp from the ISBD satellite
+  ClockSet( clockValues() )
+EndSub
+'-------------------- End of updateTimestamp( String ) --------------------
 '======================= End of Helper Subroutines ========================
 
 '=========================== Iridium Functions ============================
@@ -168,12 +307,12 @@ End Function
 Function closeIridium()
   SerialOut( Iridiumport, "AT+SBDD0" + CHR(13), "", 0, 100 )
   SerialFlush( Iridiumport )
-  If SerialClose( Iridiumport ) Then
-    iridStatus = "Iridium port closed, and modem powered off."
+  If SerialClose( Iridiumport ) <> 0 Then
+    'iridStatus = "Iridium port closed, and modem powered off."
     PortSet( Iridiumpowerport, 0 )
     Return 1  'True
   Else
-    iridStatus = "Could not close port, but modem powered off."
+    'iridStatus = "Could not close port, but modem powered off."
     PortSet( Iridiumpowerport, 0 )
     Return 0  'False
   EndIf
@@ -191,11 +330,11 @@ Function openIridium()
   PortSet( Iridiumpowerport, 1 )
   Delay( 1, 3, Sec )
   If SerialOpen( Iridiumport, 19200, 3, 0, 200 ) Then
-    iridStatus = "Iridium port open, and modem powered on."
+    iridStatus = "1) Iridium port open, and modem powered on."
     Return 1  'True
   Else
     closeIridium()
-    iridStatus = "Iridium port failed to open and has been powered off."
+    iridStatus = "1) Iridium port failed to open and has been powered off."
     Return 0  'False
   EndIf
 End Function
@@ -208,15 +347,14 @@ End Function
 ' OUTPUTS: 0 = Modem is not ready
 '          1 = Modem is ready
 '
-Function modemReady( message )
-  Dim outStr As String, waitStr As String = "READY"
-  outStr = ( "AT+SBDWB=" & Len( message ) & CHR(13) )
-  SerialFlush ( Iridiumport )
-  If SerialOut( Iridiumport, outStr, waitStr, 1, 300 ) Then
-    iridStatus = ( Iridiumport & " is ready." )
+Function modemReady( mesLength As Long)
+  Dim outStr As String * 20, waitStr As String = "READY"
+  outStr = ( "AT+SBDWB=" & mesLength & CHR(13) )
+  If SerialOut( Iridiumport, outStr, waitStr, 1, 300 ) <> 0 Then
+    iridStatus = ( "2) Modem is ready." )
     Return 1  'True
   Else
-    iridStatus = ( Iridiumport & " is not ready." )
+    iridStatus = ( "2) Modem is not ready." )
     Return 0  'False
   EndIf
 End Function
@@ -230,15 +368,28 @@ End Function
 '          1 = Modem accepted the message.
 '
 Function messageAccepted()
-  Dim binaryok As String * 20
+  Dim binaryok As String * 5
   SerialIn( binaryok, Iridiumport, 100, "0", 5 )
-  If InStr( 1, binaryok, "0", 2 ) <> 0 Then
-    iridStatus = "Modem accepted the message."
-    Return 1  'True
-  Else
-    iridStatus = "Modem did not accept the message."
-    Return 0  'False
-  EndIf
+  SplitStr( binaryok, binaryok, "", 1, 0 )
+  
+  Select Case binaryok
+    Case "0"
+      iridStatus = "3) Modem accepted the message."
+      Return 1  'True
+    Case "1"
+      iridStatus = "3) Modem failed to accept message, length too small."
+      Return 0  'False
+    Case "2"
+      iridStatus = "3) Modem failed to accept message, checksum does not match."
+      Return 0  'False
+    Case "3"
+      iridStatus = "3) Modem failed to accept message, length too large."
+      Return 0  'False
+    Case Else
+      iridStatus = "3) Modem failed to accept message, uknown error."
+      Return 0  'False
+  EndSelect 
+
 End Function
 '------------------------- End of messageAccepted() -----------------------
 
@@ -253,10 +404,10 @@ Function satConnected()
   Dim outStr As String = ( "AT+CIER=1,0,1,0" & CHR(13) )
   Dim waitStr As String = "+CIEV:1,1"
   If SerialOut( Iridiumport, outStr, waitStr, 1, 1000 ) <> 0 Then
-    iridStatus = "Connected to satellite."
+    iridStatus = "4) Connected to satellite."
     Return 1  'True
   Else
-    iridStatus = "Could not connect to a satellite."
+    iridStatus = "4) Could not connect to a satellite."
     Return 0  'False
   EndIf
 End Function
@@ -273,17 +424,17 @@ Function satReceived()
   Dim messageresult As String * 50, numresult(2) As String * 50
   Dim result(6)
   
-  SerialOut( Iridiumport, "AT+SBDIX" + CHR(13), "", 0, 0 )
+  SerialOut( Iridiumport, "AT+SBDIX" & CHR(13), "", 0, 0 )
   SerialIn( messageresult, Iridiumport, 4000, 0, 30 )
   
   SplitStr( numresult, messageresult, ":", 2, 5 )
   SplitStr( result, numresult(2), ",", 6, 5 )
   
   If ( result( 1 ) < 5 ) Then
-    iridStatus = "The satellite has receieved the message."
+    iridStatus = "5) The satellite has receieved the message."
     Return 1  'True
   Else
-    iridStatus = "The satellite was not able to receieve the message."
+    iridStatus = "5) The satellite was not able to receieve the message."
     Return 0  'False
   EndIf
 End Function
@@ -303,20 +454,21 @@ End Function
 '           1 if Successful
 '
 Function syncTimestamp()
-  '-MSMT to obtain satelite time, not +CCLK to obtain modem system time.
-  Dim outStr As String = ( "AT-MSMT" & CHR(13) )
+  '-MSSTM to obtain satelite time, not +CCLK to obtain modem system time.
+  Dim outStr As String = ( "AT-MSSTM" & CHR(13) )
   Dim response As String * 100
   
-  If SerialOut( Iridiumport, outStr, "", 5, 100 ) Then 
-    SerialIn( response, Iridiumport, 500, 0, 12 )
+  If SerialOut( Iridiumport, outStr, "", 5, 100 ) <> 0 Then 
+    SerialIn( response, Iridiumport, 500, 0, 25 )
+    iridStatus = response
     
-    If StrComp( response, "MSSTM:no network service" ) <> 0 Then
-      SplitStr( response, response, ":", 1, 4 )
-      ClockSet( toUTC( response ) )
+    If StrComp( response, "-MSSTM:no network service" ) <> 0 Then
+      SplitStr( response, response, ":", 1, 8 )
+      updateTimestamp( response )
       iridStatus = "Successfully synced system time of day with satellite."
       Return 1   'True
     Else
-      iridStatus = "Unable to sync system time of day with satellte."
+      iridStatus = "Unable to sync system time of day with satellite."
       Return 0   'False
     EndIf
   
@@ -330,40 +482,133 @@ End Function
 '-------------------------- constructMessage( int ) -----------------------
 ' Construct the message contents for transmission via ISBD
 '
-' INPUTS:   nValues, number of unique variables to be packet in the message
-' OUTPUTS:  A constructed ISBD Message ready for transmission
+' Note: the variable that contains the binary message must be public in
+' order for the campbell to be able to transmit to the modem.
 '
-Function constructMessage( nValues )
-  Dim lastrecord(100), longrecord(100) As Long, hours As Long
-  Dim byte1 As Long, byte2 As Long, offset As Long, j
-  Dim iridchecksum As Long, message As String
+' INPUTS:   nValues, number of unique variables to be packet in the message
+' OUTPUTS:  The length of the constructed ISBD Message ready for transmission
+'
+' Message Composition:
+'Po---Variable--------Units--------Data----Multiplier---------Example-----
+'01.    Date      |  YYYYMMDD  | 4 Bytes |     1      |      20200611
+'02.    Time      |   HHMMSS   | 4 Bytes |     1      |       140453
+'03.  Battery     |   Volts    | 2 Bytes |    100     |   12.14 -> 1214
+'04. Panel Temp   |  'Celsius  | 2 Bytes |    100     |   17.24 -> 1724
+'05.   First      |   Meters   | 4 Bytes |   1000     | 203.555 -> 203555
+'06. Strongest    |   Meters   | 4 Bytes |   1000     | 258.745 -> 258745
+'07.    Last      |   Meters   | 4 Bytes |   1000     | 103.756 -> 103756
+'08.  Pressure    |    kPa     | 4 Bytes |   1000     | 101.325 -> 101325
+'09.    Temp      |  'Celsius  | 4 Bytes |   1000     |   8.375 -> 8375
+'10.   Level      |     cm     | 4 Bytes |   1000     |  43.844 -> 43844
+'11.  checksum    |    N/A     | 2 Bytes |     1      | *Only sent to Modem*
+'
+'     ** All values are transmitted as 2's complement binary integers **
+'  ** And must be post-processed to include decimal places ( e.g. /100 ) **
+Function constructMessage()
+  Dim lastrecord(numvals), YYYYMMDD As Long, HHMMSS As Long
+  Dim longValue As Long, holder As Long, offset, i
+  Dim iridchecksum As Long, tstamp(6) As Long
+  
+  iridStatus = "Constructing message for ISBD transmission..."
+  
+  'reset values each time this function is called (dim only initializes 1x)
+  ISBD_Message_BIN = ""
+  ISBD_Message_ASCII = ""
+  offset = 0
   
   'Get the last data recorded
   GetRecord( lastrecord, hourtab, 1 )
 
-  'Generate timestamp for message.
-  hours = ( INT( ( hourtab.Timestamp( 2, 1 ) ) / 3600 ) + 24 )
-  MoveBytes( message, offset, hours, 2, 2 )
-  MoveBytes( byte1, 3, hours, 2, 1 )
-  MoveBytes( byte2, 3, hours, 3, 1 )
-  iridchecksum += byte1 + byte2
-  offset += 2
+  'Generate timestamp for data included in the message.
+  SplitStr( tstamp, hourtab.TimeStamp( 6, 1 ), "_-.", 6, 7 )
+  YYYYMMDD = ( ( tstamp(1) * 100 + tstamp(2) ) * 100 + tstamp(3) )
+  HHMMSS = ( ( tstamp(4) * 100 + tstamp(5) ) * 100 + tstamp(6) )
+  
+  'Insert date, into message
+  ISBD_Message_ASCII = YYYYMMDD
+  MoveBytes( ISBD_Message_BIN, offset, YYYYMMDD, 0, BYTES_4 )
+  offset += BYTES_4
 
-  'Populate message with nValues from last record.
-  For j = 1 To nValues Step 1
-    longrecord(j) = toLong( lastrecord(j) )
-    MoveBytes( message, offset, longrecord(j), 2, 2 )
-    MoveBytes( byte1, 3, longrecord(j), 2, 1 )
-    MoveBytes( byte2, 3, longrecord(j), 3, 1 )
-    iridchecksum += byte1 + byte2
-    offset += 2
-  Next j
+  'Insert time, into message
+  MoveBytes( ISBD_Message_BIN, offset, HHMMSS, 0, BYTES_4 )
+  ISBD_Message_ASCII &= ", " & HHMMSS
+  offset += BYTES_4
+
+  'Insert minimum battery voltage into message
+  longValue = toLong( lastrecord(1), 2 )
+  MoveBytes( ISBD_Message_BIN, offset, longValue, 2, BYTES_2 )
+  ISBD_Message_ASCII &= ", " & longValue
+  offset += BYTES_2
   
+  'Insert panel temp into message
+  longValue = toLong( lastrecord(2), 2 )
+  MoveBytes( ISBD_Message_BIN, offset, longValue, 2, BYTES_2 )
+  ISBD_Message_ASCII &= ", " & longValue
+  offset += BYTES_2
+
+  'Insert first laser reading value into message
+  longValue = toLong( lastrecord(3), 3 )
+  MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
+  ISBD_Message_ASCII &= ", " & longValue
+  offset += BYTES_4
+  
+  'Insert strongest laser reading value into message
+  longValue = toLong( lastrecord(4), 3 )
+  MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
+  ISBD_Message_ASCII &= ", " & longValue
+  offset += BYTES_4
+  
+  'Insert last laser reading value into message
+  longValue = toLong( lastrecord(5), 3 )
+  MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4  )
+  ISBD_Message_ASCII &= ", " & longValue
+  offset += BYTES_4
+  
+  'Insert x angle value into message
+  longValue = toLong( lastrecord(6), 3 )
+  MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
+  ISBD_Message_ASCII &= ", " & longValue
+  offset += BYTES_4
+  
+  'Insert y angle value into message
+  longValue = toLong( lastrecord(7), 3 )
+  MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
+  ISBD_Message_ASCII &= ", " & longValue
+  offset += BYTES_4
+  
+  'Insert pressure reading value from pressure transducer into message
+  longValue = toLong( lastrecord(8), 3 )
+  MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
+  ISBD_Message_ASCII &= ", " & longValue
+  offset += BYTES_4
+  
+  'Insert temperature reading value from pressure transducer into message
+  longValue = toLong( lastrecord(9), 3 )
+  MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
+  ISBD_Message_ASCII &= ", " & longValue
+  offset += BYTES_4
+  
+  'Insert level reading value from pressure transducer into message
+  longValue = toLong( lastrecord(10), 3 )
+  MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
+  ISBD_Message_ASCII &= ", " & longValue
+  offset += BYTES_4
+
   'Append checksum to binary message
-  MoveBytes ( message, offset, iridchecksum, 2, 2 )
+  iridchecksum = CheckSum( ISBD_Message_BIN, 23, offset )
+  MoveBytes( ISBD_Message_BIN, offset, iridchecksum, 2, BYTES_2 ) 
+  ISBD_Message_ASCII &= ", " & iridchecksum 
+  offset += 2
   
-  iridStatus = message
-  Return( message )
+  'Convert ISBD binary message into a readable hex
+  ISBD_Message_HEX = ""
+  For i = 1 To offset Step 1
+    holder = 0
+    MoveBytes( holder, 3, ISBD_Message_BIN, i - 1, BYTES_1 )
+    ISBD_Message_HEX &= Hex( holder ) & " "
+  Next i
+
+  Return( offset )
 End Function
 '----------------------- End of constructMessage( int ) -------------------
 
@@ -375,39 +620,40 @@ End Function
 '           1 if Successful
 '
 Function sendMessage()
-  Dim attempts, success, message
+  Dim attempts, success, length
   attempts = 0
   success = 0
-  message = constructMessage( numvals )  
+  length = constructMessage()  
   
   openIridium()
-  syncTimestamp()
-
-  While ( ( success <> 1 ) AND ( attempts += 1 < 4 ) )
-    If modemReady( message ) Then
+  
+  While ( ( success <> 1 ) AND ( attempts < 4 ) )
+    If modemReady( length - 2 ) Then
       'send the message data to the ISBD modem
-      SerialOutBlock( Iridiumport, message, Len( message ) )  
-        
-      If messageAccepted() Then              
+      SerialOutBlock( Iridiumport, ISBD_Message_BIN, length )  
+      If messageAccepted() Then             
         If satConnected() Then
-          
           If satReceived() Then
-            success = 1
-            iridStatus = "Successfully sent an ISBD message."
-            Return 1  'True
+            syncTimestamp()
+            iridStatus = ("Successfully sent an ISBD message: "  & Month & ":" & DOM & ":" & Hour & ":" & Minute )
+            success = 1  'True
           ElseIf attempts = 4 Then
             iridStatus = "Unable to send ISBD message."
-            Return 0  'False
+            success = 0  'False
           EndIf
-          
         EndIf        
       EndIf
-      
+    EndIf
+    
+    If success = 0 Then
+      attempts += 1
+      iridStatus = "Unable to send message, tries: " & attempts
     EndIf
   Wend
   
   'return the modem to its inactive state.
   closeIridium()
+  Return success 
 End Function
 '-------------------------- End of sendMessage() --------------------------
 '======================== End of Iridium Functions ========================
@@ -545,6 +791,10 @@ Function initS200()
     '           8 = First, second, third, strongest, last targets
     laserStatus = "Setting the target mode..."
     cmdS200( "$DM,7" )
+    
+    ' Write these settings into non-volatile memory
+    laserStatus = "Writing to non volatile memory..."
+    cmdS200( "$SU" )
 
     laserStatus = "Successfully initialized the Trusense S200."
     closeS200()
@@ -595,7 +845,7 @@ Sub sampleS200()
       laserStatus = ( "Response(" & i & ")" & " : " & response )
       SplitStr( splitResponse, response, ",", 7, 7 )
       
-      If StrComp( splitResponse(1), "$DM" ) = 0 Then
+      If StrComp( splitResponse(1), "$DM" ) = 0 AND StrComp( splitResponse(2), "A" ) = 0 Then
         ' Data is good, assign it to respective variables
         raw_first(i) = splitResponse(3)
         raw_strongest(i) = splitResponse(4)
@@ -1073,10 +1323,10 @@ BeginProg
     If Day_of_Year <= CloseDate AND Day_of_Year >= OpenDate Then 
       If TimeIntoInterval( 0, measInterval, min ) OR forceRead = 1 Then
         sysStatus = "Measuring sensors..."
-        'measSensors()
+        measSensors()
         sysStatus = "Updating DataTables to memory."
-        'CallTable rawMeasurements
-        'CallTable hourtab
+        CallTable rawMeasurements
+        CallTable hourtab
         forceRead = 0            ' Return to default state
       EndIf   
     EndIf
@@ -1089,12 +1339,14 @@ BeginProg
     If Day_of_Year <= CloseDate AND Day_of_Year >= OpenDate Then 
       ' Check to see if an ISBD message should be sent
       If TimeIntoInterval( 1, sendInterval, min ) OR forceMessage = 1 Then
+        sendCalls1 += 1
         sysStatus = "Sending an ISBD message."
-        'msgSuccess = sendMessage()
+        msgSuccess = sendMessage()
         forceMessage = 0
-      ElseIf TimeIntoInterval( 3, 5, min ) AND NOT msgSuccess Then
+      ElseIf TimeIntoInterval( 3, 5, min ) AND msgSuccess = 0 Then
+        sendCalls2 += 1
         sysStatus = "Attempting to send the ISBD message again..."
-        'msgSuccess = sendMessage()
+        msgSuccess = sendMessage()
       EndIf
     EndIf
     SysStatus = "Standby..."
