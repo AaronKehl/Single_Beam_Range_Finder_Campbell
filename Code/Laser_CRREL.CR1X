@@ -40,12 +40,10 @@ Public pressStatus As String * 250
 Public ISBD_Message_BIN As String * 300
 Public ISBD_Message_HEX As String * 300
 Public ISBD_Message_ASCII As String * 500
-Public sendCalls1 = 0
-Public sendCalls2 = 0
 
 'Campbell System Variables
 Public forceRead, forceMessage, PTemp As Float, batt_volt As Float
-Const measInterval = 60        'Time interval to take measurements [min]
+Const measInterval = 15        'Time interval to take measurements [min]
 Const sendInterval = 60        'Time interval to send ISBD messages [min]
 Const OpenDate = 91            'April 1
 Const CloseDate = 304          'Oct 31
@@ -210,16 +208,23 @@ Sub updateTimestamp( val As String )
 
   'correct the values for the epoch start time 
   utcSecond += 55
-  If utcSecond >= 60 Then utcSecond -= 60
+  If utcSecond >= 60 Then 
+    utcMinute += 1
+    utcSecond -= 60
+  EndIf
   utcMinute += 23
-  If utcMinute >= 60 Then utcMinute -= 60
+  If utcMinute >= 60 Then 
+    utcHour += 1
+    utcMinute -= 60
+  EndIf
   utcHour += 14
   If utcHour >= 24 Then utcHour -= 24
 
   '////////////////////// Find Year and Day of Year ///////////////////////
   'Subtract remaining days in 2014 (from epoch)
   'Begin the find year process in the year 2015
-  utcDOY = Floor( ( frames_since_epoch / 86400 ) - 234 )
+  ' epoch start is day 131.6 of year, leaving 233.4 days left in year 2014
+  utcDOY = Floor( ( frames_since_epoch / 86400 ) - 233.40005787 )
   utcYear = 2015
   found = 0
   
@@ -228,7 +233,7 @@ Sub updateTimestamp( val As String )
   ' calendar year from the days since the epoch (adjusted to 2015)
   ' until it tries to go negative.  Then the current year has been found
   While found = 0
-    'Update days in the yaear based on which year we are evaluating
+    'Update days in the year based on which year we are evaluating
     If isLeapYear( utcYear ) Then
       days_in_year = 366
     Else
@@ -626,6 +631,7 @@ Function sendMessage()
   length = constructMessage()  
   
   openIridium()
+  syncTimestamp()
   
   While ( ( success <> 1 ) AND ( attempts < 4 ) )
     If modemReady( length - 2 ) Then
@@ -634,11 +640,10 @@ Function sendMessage()
       If messageAccepted() Then             
         If satConnected() Then
           If satReceived() Then
-            syncTimestamp()
-            iridStatus = ("Successfully sent an ISBD message: "  & Month & ":" & DOM & ":" & Hour & ":" & Minute )
+            iridStatus = ( "Successfully sent an ISBD message: "  & Month & "/" & DOM & "-" & Hour & ":" & Minute )
             success = 1  'True
           ElseIf attempts = 4 Then
-            iridStatus = "Unable to send ISBD message."
+            iridStatus = "Unable to send ISBD message." 
             success = 0  'False
           EndIf
         EndIf        
@@ -647,7 +652,7 @@ Function sendMessage()
     
     If success = 0 Then
       attempts += 1
-      iridStatus = "Unable to send message, tries: " & attempts
+      iridStatus = ( "Unable to send message: " & Month & "/" & DOM & "-" & Hour & ":" & Minute & ", tries: " & attempts )
     EndIf
   Wend
   
@@ -1305,6 +1310,9 @@ BeginProg
   'Place tasks her to perform on every single startup/reboot of the logger.
   sysStatus = "Completing on startup tasks." 
   initSensors()
+  openIridium()
+  syncTimestamp()
+  closeIridium()
   sysStatus = "On startup tasks completed."
   
   ' Troubleshooting or other one time use functions should be used here
@@ -1313,13 +1321,16 @@ BeginProg
   ' So make sure to recomment out commands after using them  and reupload
   ' or each will be performed on every startup of the datalogger. 
   ' Examples:
-  '  findPressureTransducer()    'You should update pressAddr as needed (global)
+  '  findPressureTransducer()    'You should update pressAddr constant as needed (global)
   '  addrPressureTransducer(0,2) 'Update pressAddr constant after changing sdi address
   '  calibPressureTransducer()   'Make sure settings are correct when doing this
   
-  ' Check to see if measurements are to be conducted. Checks every 1 min
+  ' Check to see if measurements are to be conducted or messages sent.
   Scan( 1, min, 0, 0 )
-    RealTime( rTime )' Update time in order to assess the day of the year.
+    ' Update time in order to assess the day of the year.
+    RealTime( rTime )
+    
+    ' Check to see if measurements are to be made
     If Day_of_Year <= CloseDate AND Day_of_Year >= OpenDate Then 
       If TimeIntoInterval( 0, measInterval, min ) OR forceRead = 1 Then
         sysStatus = "Measuring sensors..."
@@ -1329,27 +1340,30 @@ BeginProg
         CallTable hourtab
         forceRead = 0            ' Return to default state
       EndIf   
+    
+      ' Check to see if an ISBD message should be sent
+      If TimeIntoInterval( 1, sendInterval, min ) OR forceMessage = 1 Then
+        sysStatus = "Sending an ISBD message."
+        msgSuccess = sendMessage()
+        forceMessage = 0
+      ElseIf TimeIntoInterval( 3, 5, min ) AND msgSuccess = 0 Then
+        sysStatus = "Attempting to send the ISBD message again..."
+        msgSuccess = sendMessage()
+      EndIf
+      
     EndIf
     sysStatus = "Standby..."   
   NextScan
   
   SlowSequence 
-  ' Check to see if a message needs to be sent/re-sent. Checks every 1 min
-  Scan( 1, min, 0, 0 )
-    If Day_of_Year <= CloseDate AND Day_of_Year >= OpenDate Then 
-      ' Check to see if an ISBD message should be sent
-      If TimeIntoInterval( 1, sendInterval, min ) OR forceMessage = 1 Then
-        sendCalls1 += 1
-        sysStatus = "Sending an ISBD message."
-        msgSuccess = sendMessage()
-        forceMessage = 0
-      ElseIf TimeIntoInterval( 3, 5, min ) AND msgSuccess = 0 Then
-        sendCalls2 += 1
-        sysStatus = "Attempting to send the ISBD message again..."
-        msgSuccess = sendMessage()
-      EndIf
-    EndIf
-    SysStatus = "Standby..."
+  ' Update system time with satellite (if possible) once a day.
+  ' Ensures timestamp accuracy during non-measurement periods.
+  Scan( 1, day, 0, 0 )
+    sysStatus = "Sycning time with satellite..."
+    openIridium()
+    syncTimestamp()
+    closeIridium()
+    sysStatus = "Standby..."
   NextScan
   
 EndProg
