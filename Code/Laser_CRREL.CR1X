@@ -1356,13 +1356,16 @@ BeginProg
   NextScan
   
   SlowSequence 
-  ' Update system time with satellite (if possible) once a day.
-  ' Ensures timestamp accuracy during non-measurement periods.
-  Scan( 1, day, 0, 0 )
-    sysStatus = "Sycning time with satellite..."
-    openIridium()
-    syncTimestamp()
-    closeIridium()
+  ' Update system time with satellite (if possible) 
+  ' during non-measurement times of year. Should 
+  ' resolve the issue of not "waking up."
+  Scan( 6, hr, 0, 0 )
+    If Day_of_Year >= CloseDate AND Day_of_Year <= OpenDate Then 
+      sysStatus = "Sycning time with satellite..."
+      openIridium()
+      syncTimestamp()
+      closeIridium()
+    EndIf
     sysStatus = "Standby..."
   NextScan
   
