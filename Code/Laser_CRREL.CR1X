@@ -194,7 +194,7 @@ Sub updateTimestamp( val As String )
   Dim days_in_year, utcDOY As Long, utcYear As Long, found
   Dim daysInMonths(12), utcDOM As Long, utcMOY As Long, index
   Dim utcHour As Float, utcMinute As Float, utcSecond As Float
-  Dim utcUSecond As Float
+  Dim utcUSecond As Float, count
   
   'Process the number of 90ms frames from the epoch into 1s frames
   frames_since_epoch = HexToDec( val )
@@ -227,12 +227,13 @@ Sub updateTimestamp( val As String )
   utcDOY = Floor( ( frames_since_epoch / 86400 ) - 233.40005787 )
   utcYear = 2015
   found = 0
+  count = 0
   
   'Find the Year and Day of Year.
   ' loops through the years and subtracts the number of days of that
   ' calendar year from the days since the epoch (adjusted to 2015)
   ' until it tries to go negative.  Then the current year has been found
-  While found = 0
+  While found = 0 & count < 1000
     'Update days in the year based on which year we are evaluating
     If isLeapYear( utcYear ) Then
       days_in_year = 366
@@ -247,6 +248,8 @@ Sub updateTimestamp( val As String )
       utcDOY -= days_in_year
       utcYear += 1
     EndIf
+    
+    count += 1
   Wend  
   '/////////////////// End of Find Year and Day of Year ///////////////////
 
