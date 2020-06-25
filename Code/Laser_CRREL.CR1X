@@ -505,10 +505,12 @@ End Function
 '05.   First      |   Meters   | 4 Bytes |   1000     | 203.555 -> 203555
 '06. Strongest    |   Meters   | 4 Bytes |   1000     | 258.745 -> 258745
 '07.    Last      |   Meters   | 4 Bytes |   1000     | 103.756 -> 103756
-'08.  Pressure    |    kPa     | 4 Bytes |   1000     | 101.325 -> 101325
-'09.    Temp      |  'Celsius  | 4 Bytes |   1000     |   8.375 -> 8375
-'10.   Level      |     cm     | 4 Bytes |   1000     |  43.844 -> 43844
-'11.  checksum    |    N/A     | 2 Bytes |     1      | *Only sent to Modem*
+'08.     X        |   Degrees  | 4 Bytes |   1000     |   1.035 -> 1035
+'09.     Y        |   Degrees  | 4 Bytes |   1000     | -14.035 -> -14035
+'10.  Pressure    |    kPa     | 4 Bytes |   1000     | 101.325 -> 101325
+'11.    Temp      |  'Celsius  | 4 Bytes |   1000     |   8.375 -> 8375
+'12.   Level      |     cm     | 4 Bytes |   1000     |  43.844 -> 43844
+'13.  checksum    |    N/A     | 2 Bytes |     1      | *Only sent to Modem*
 '
 '     ** All values are transmitted as 2's complement binary integers **
 '  ** And must be post-processed to include decimal places ( e.g. /100 ) **
