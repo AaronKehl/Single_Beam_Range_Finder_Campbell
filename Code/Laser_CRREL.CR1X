@@ -6,20 +6,20 @@
 ' April 2020
 '
 ' NAL 9602-N ISBD Modem
-' C3      - white wire,(TX Datalogger, RX Device)
-' C4      - green wire,(RX Datalogger, TX Device)
+' C3      - white wire (TX Datalogger, RX Device)
+' C4      - green wire (RX Datalogger, TX Device)
 ' C5      - Red wire, PWR
 ' G       - black wires
 '
 ' G-NSDOG2-003 Inclinomter (measures +-90 degrees)
 ' SW12V_1 - red wire
 ' G       - black wire
-' SE1     - white wire (X axis measurement)
-' SE2     - green wire (Y axis measurement)
+' SE1     - green wire (X axis measurement)
+' SE2     - white wire (Y axis measurement)
 '
 ' Trusense S200 Range Finder
-' C1      - Blue, (TX Datalogger, RX Device)
-' C2      - Brown, (RX Datalogger, TX Device)
+' C1      - Blue (TX Datalogger, RX Device)
+' C2      - Brown (RX Datalogger, TX Device)
 ' SW12V-1 - Pink
 ' G       - Black
 '
@@ -76,7 +76,7 @@ Public raw_strongest( nLaserSamples ) As Float
 Public raw_last( nLaserSamples ) As Float
 Public first As Float, last As Float, strongest As Float
 
-'Inclinometer Variables 
+'Inclinometer Variables
 Const xPort = 1
 Const yPort = 2
 Const nAngleSamples = 50
@@ -85,7 +85,7 @@ Public x As Float, y As Float
 
 'TROLL 700H Pressure Transducer Variables
 Const pressPort = C7           ' The SDI-12 Data Port Pin#
-Const nPressSamples = 10       ' Number of repeated readings 
+Const nPressSamples = 10       ' Number of repeated readings
 Const pressAddr = 0            ' The device address on SDI-12
 Public raw_pressPress( nPressSamples ) As Float
 Public raw_pressTemp( nPressSamples ) As Float
@@ -96,7 +96,7 @@ Public pressLevel As Float     ' Storage variable for averaged level of prb
 '------------------------- End of Global Variables ------------------------
 
 '------------------------------ Data Tables -------------------------------
-' Update processed sensor data into stored memory, note this is also the 
+' Update processed sensor data into stored memory, note this is also the
 ' structure for ISBD messages, formed via lastrecord().
 DataTable( hourtab, 1, -1 )
   CardOut( 0, -1 )
@@ -151,7 +151,7 @@ Function toLong( floatval As Float, decimalPlaces )
     Case Else
       multiplier = 1
   EndSelect
-  
+
   result = FIX( floatval * multiplier )
   Return( result )
 End Function
@@ -165,7 +165,7 @@ End Function
 '          1 = A leapyear
 Function isLeapYear( year_in_question )
   'Determine whether it is a leap year or not
-  If year_in_question MOD 4 = 0 Then 
+  If year_in_question MOD 4 = 0 Then
     If year_in_question MOD 400 = 0 OR year_in_question MOD 100 <> 0 Then
       Return 1
     Else
@@ -195,25 +195,25 @@ Sub updateTimestamp( val As String )
   Dim daysInMonths(12), utcDOM As Long, utcMOY As Long, index
   Dim utcHour As Float, utcMinute As Float, utcSecond As Float
   Dim utcUSecond As Float, count
-  
+
   'Process the number of 90ms frames from the epoch into 1s frames
   frames_since_epoch = HexToDec( val )
   frames_since_epoch = frames_since_epoch * 0.09
-  
+
   'Calculate time of day from 90ms frames
   utcHour = ( ( frames_since_epoch MOD 86400 ) / 86400 ) * 24
   utcMinute = ( ( frames_since_epoch MOD 3600 ) / 3600 ) * 60
   utcSecond = frames_since_epoch MOD 60
   utcUSecond = ( frames_since_epoch * 1000000 ) MOD 1000000
 
-  'correct the values for the epoch start time 
+  'correct the values for the epoch start time
   utcSecond += 55
-  If utcSecond >= 60 Then 
+  If utcSecond >= 60 Then
     utcMinute += 1
     utcSecond -= 60
   EndIf
   utcMinute += 23
-  If utcMinute >= 60 Then 
+  If utcMinute >= 60 Then
     utcHour += 1
     utcMinute -= 60
   EndIf
@@ -228,7 +228,7 @@ Sub updateTimestamp( val As String )
   utcYear = 2015
   found = 0
   count = 0
-  
+
   'Find the Year and Day of Year.
   ' loops through the years and subtracts the number of days of that
   ' calendar year from the days since the epoch (adjusted to 2015)
@@ -240,17 +240,17 @@ Sub updateTimestamp( val As String )
     Else
       days_in_year = 365
     EndIf
-    
+
     'Evaluate whether to increment 1 year or not
     If utcDOY - days_in_year <= 0 Then
       found = 1
-    Else 
+    Else
       utcDOY -= days_in_year
       utcYear += 1
     EndIf
-    
+
     count += 1
-  Wend  
+  Wend
   '/////////////////// End of Find Year and Day of Year ///////////////////
 
   '////////////////// Find Month of Year and Day of Month /////////////////
@@ -269,26 +269,26 @@ Sub updateTimestamp( val As String )
         EndIf
     EndSelect
   Next index
-  
+
   'reset variables. Dim declares one time at initialization
   'and does not overwrite on each function call.
   found = 0
   index = 1
   utcDOM = utcDOY
-  
+
   ' find and return the day of the month by subtracting 1 month
   ' of days at a time, from the number passed into this function
   While found = 0 AND index <= 12
     If utcDOM - daysInMonths( index ) <= 0 Then
       utcMOY = index
       found = 1
-    Else 
+    Else
       utcDOM -= daysInMonths( index )
       index += 1
     EndIf
   Wend
   '///////////// End of Find Month of Year and Day of Month //////////////
-  
+
   'prepare the variable to write to the clock
   clockValues(1) = utcYear       '[year]
   clockValues(2) = utcMOY        '[month] of year
@@ -297,7 +297,7 @@ Sub updateTimestamp( val As String )
   clockValues(5) = Floor( utcMinute )   '[min] of hour
   clockValues(6) = Floor( utcSecond )   '[s] of min
   clockValues(7) = Floor( utcUSecond )  '[us] of second
- 
+
   'Update the system clock with the UTC timestamp from the ISBD satellite
   ClockSet( clockValues() )
 EndSub
@@ -311,7 +311,7 @@ EndSub
 ' INPUTS: N/A
 ' OUTPUTS: 0 = Failed to close port
 '          1 = Closed the port to the modem
-'      
+'
 Function closeIridium()
   SerialOut( Iridiumport, "AT+SBDD0" + CHR(13), "", 0, 100 )
   SerialFlush( Iridiumport )
@@ -379,7 +379,7 @@ Function messageAccepted()
   Dim binaryok As String * 5
   SerialIn( binaryok, Iridiumport, 100, "0", 5 )
   SplitStr( binaryok, binaryok, "", 1, 0 )
-  
+
   Select Case binaryok
     Case "0"
       iridStatus = "3) Modem accepted the message."
@@ -396,7 +396,7 @@ Function messageAccepted()
     Case Else
       iridStatus = "3) Modem failed to accept message, uknown error."
       Return 0  'False
-  EndSelect 
+  EndSelect
 
 End Function
 '------------------------- End of messageAccepted() -----------------------
@@ -431,13 +431,13 @@ End Function
 Function satReceived()
   Dim messageresult As String * 50, numresult(2) As String * 50
   Dim result(6)
-  
+
   SerialOut( Iridiumport, "AT+SBDIX" & CHR(13), "", 0, 0 )
   SerialIn( messageresult, Iridiumport, 4000, 0, 30 )
-  
+
   SplitStr( numresult, messageresult, ":", 2, 5 )
   SplitStr( result, numresult(2), ",", 6, 5 )
-  
+
   If ( result( 1 ) < 5 ) Then
     iridStatus = "5) The satellite has receieved the message."
     Return 1  'True
@@ -465,11 +465,11 @@ Function syncTimestamp()
   '-MSSTM to obtain satelite time, not +CCLK to obtain modem system time.
   Dim outStr As String = ( "AT-MSSTM" & CHR(13) )
   Dim response As String * 100
-  
-  If SerialOut( Iridiumport, outStr, "", 5, 100 ) <> 0 Then 
+
+  If SerialOut( Iridiumport, outStr, "", 5, 100 ) <> 0 Then
     SerialIn( response, Iridiumport, 500, 0, 25 )
     iridStatus = response
-    
+
     If StrComp( response, "-MSSTM:no network service" ) <> 0 Then
       SplitStr( response, response, ":", 1, 8 )
       updateTimestamp( response )
@@ -479,7 +479,7 @@ Function syncTimestamp()
       iridStatus = "Unable to sync system time of day with satellite."
       Return 0   'False
     EndIf
-  
+
   Else
     iridStatus = "Unable to sync system time of day with satellite."
     Return 0     'False
@@ -518,14 +518,14 @@ Function constructMessage()
   Dim lastrecord(numvals), YYYYMMDD As Long, HHMMSS As Long
   Dim longValue As Long, holder As Long, offset, i
   Dim iridchecksum As Long, tstamp(6) As Long
-  
+
   iridStatus = "Constructing message for ISBD transmission..."
-  
+
   'reset values each time this function is called (dim only initializes 1x)
   ISBD_Message_BIN = ""
   ISBD_Message_ASCII = ""
   offset = 0
-  
+
   'Get the last data recorded
   GetRecord( lastrecord, hourtab, 1 )
 
@@ -533,7 +533,7 @@ Function constructMessage()
   SplitStr( tstamp, hourtab.TimeStamp( 6, 1 ), "_-.", 6, 7 )
   YYYYMMDD = ( ( tstamp(1) * 100 + tstamp(2) ) * 100 + tstamp(3) )
   HHMMSS = ( ( tstamp(4) * 100 + tstamp(5) ) * 100 + tstamp(6) )
-  
+
   'Insert date, into message
   ISBD_Message_ASCII = YYYYMMDD
   MoveBytes( ISBD_Message_BIN, offset, YYYYMMDD, 0, BYTES_4 )
@@ -549,7 +549,7 @@ Function constructMessage()
   MoveBytes( ISBD_Message_BIN, offset, longValue, 2, BYTES_2 )
   ISBD_Message_ASCII &= ", " & longValue
   offset += BYTES_2
-  
+
   'Insert panel temp into message
   longValue = toLong( lastrecord(2), 2 )
   MoveBytes( ISBD_Message_BIN, offset, longValue, 2, BYTES_2 )
@@ -561,43 +561,43 @@ Function constructMessage()
   MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
   ISBD_Message_ASCII &= ", " & longValue
   offset += BYTES_4
-  
+
   'Insert strongest laser reading value into message
   longValue = toLong( lastrecord(4), 3 )
   MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
   ISBD_Message_ASCII &= ", " & longValue
   offset += BYTES_4
-  
+
   'Insert last laser reading value into message
   longValue = toLong( lastrecord(5), 3 )
   MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4  )
   ISBD_Message_ASCII &= ", " & longValue
   offset += BYTES_4
-  
+
   'Insert x angle value into message
   longValue = toLong( lastrecord(6), 3 )
   MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
   ISBD_Message_ASCII &= ", " & longValue
   offset += BYTES_4
-  
+
   'Insert y angle value into message
   longValue = toLong( lastrecord(7), 3 )
   MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
   ISBD_Message_ASCII &= ", " & longValue
   offset += BYTES_4
-  
+
   'Insert pressure reading value from pressure transducer into message
   longValue = toLong( lastrecord(8), 3 )
   MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
   ISBD_Message_ASCII &= ", " & longValue
   offset += BYTES_4
-  
+
   'Insert temperature reading value from pressure transducer into message
   longValue = toLong( lastrecord(9), 3 )
   MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
   ISBD_Message_ASCII &= ", " & longValue
   offset += BYTES_4
-  
+
   'Insert level reading value from pressure transducer into message
   longValue = toLong( lastrecord(10), 3 )
   MoveBytes( ISBD_Message_BIN, offset, longValue, 0, BYTES_4 )
@@ -606,10 +606,10 @@ Function constructMessage()
 
   'Append checksum to binary message
   iridchecksum = CheckSum( ISBD_Message_BIN, 23, offset )
-  MoveBytes( ISBD_Message_BIN, offset, iridchecksum, 2, BYTES_2 ) 
-  ISBD_Message_ASCII &= ", " & iridchecksum 
+  MoveBytes( ISBD_Message_BIN, offset, iridchecksum, 2, BYTES_2 )
+  ISBD_Message_ASCII &= ", " & iridchecksum
   offset += 2
-  
+
   'Convert ISBD binary message into a readable hex
   ISBD_Message_HEX = ""
   For i = 1 To offset Step 1
@@ -633,37 +633,37 @@ Function sendMessage()
   Dim attempts, success, length
   attempts = 0
   success = 0
-  length = constructMessage()  
-  
+  length = constructMessage()
+
   openIridium()
   syncTimestamp()
-  
+
   While ( ( success <> 1 ) AND ( attempts < 4 ) )
     If modemReady( length - 2 ) Then
       'send the message data to the ISBD modem
-      SerialOutBlock( Iridiumport, ISBD_Message_BIN, length )  
-      If messageAccepted() Then             
+      SerialOutBlock( Iridiumport, ISBD_Message_BIN, length )
+      If messageAccepted() Then
         If satConnected() Then
           If satReceived() Then
             iridStatus = ( "Successfully sent an ISBD message: "  & Month & "/" & DOM & "-" & Hour & ":" & Minute )
             success = 1  'True
           ElseIf attempts = 4 Then
-            iridStatus = "Unable to send ISBD message." 
+            iridStatus = "Unable to send ISBD message."
             success = 0  'False
           EndIf
-        EndIf        
+        EndIf
       EndIf
     EndIf
-    
+
     If success = 0 Then
       attempts += 1
       iridStatus = ( "Unable to send message: " & Month & "/" & DOM & "-" & Hour & ":" & Minute & ", tries: " & attempts )
     EndIf
   Wend
-  
+
   'return the modem to its inactive state.
   closeIridium()
-  Return success 
+  Return success
 End Function
 '-------------------------- End of sendMessage() --------------------------
 '======================== End of Iridium Functions ========================
@@ -682,7 +682,7 @@ Function cmdS200( cmd As String )
   Dim CRLF As String = (CHR(13) & CHR(10)), response As String * 100
   SerialFlush( Laserport )
   laserStatus = ( "Sending: " & cmd & CRLF )
-  
+
   If SerialOut( Laserport, cmd & CRLF, "", 0, 0 ) <> 0 Then
     'laserStatus = ( cmd & CRLF & " sent to laser." )
     SerialIn( response, Laserport, 100, 10, 100 )
@@ -714,7 +714,7 @@ Function openS200 As Boolean
   Dim nTries
   nTries = 0
   openS200 = 0
-  
+
   'Make 4 attempts to open the serial port
   While ( openS200 = 0 AND nTries < 4 )
     'Default Values:
@@ -727,17 +727,17 @@ Function openS200 As Boolean
       nTries += 1
       laserStatus = ( Laserport & " not opened." & "attempt: " & nTries )
       closeS200()
-      openS200 = 0 'False 
+      openS200 = 0 'False
     EndIf
   Wend
-  
+
 End Function
 '-------------------------- End of openS200() -----------------------------
 
 '----------------------------- initS200() ---------------------------------
 ' This subroutine makes sure the S200 is always set to our preferences.
-' Initialization function for the Trusense S200. Parameters can be   
-' modified, but keep in mind that the program Is set up For default 
+' Initialization function for the Trusense S200. Parameters can be
+' modified, but keep in mind that the program Is set up For default
 ' settings of the following:
 '      1. Measurement units: Meters.
 '      2. Right digits: 3.
@@ -753,7 +753,7 @@ End Function
 Function initS200()
   If openS200() Then
     laserStatus = "Initializing the Trusense S200."
-    
+
     ' Set Units AND Right digits
     '    "$MU,u,d"
     '        u: M = meter
@@ -765,14 +765,14 @@ Function initS200()
     cmdS200( "$MU,M,3" )
     laserStatus = "Rebooting..."
     Delay( 0, 5, 2 )  'Wait for hardware reboot
-    
+
     ' Set the number of warmup readings
     '    "$WU,n"
     '        n: 0 = disabled
     '           1-99 = warmup readings, discarded before meas.
     laserStatus = "Setting the number of warmup readings..."
     cmdS200( "$WU," & nWarmup )
-    
+
     ' Set the measurement mode
     '    "$MM,n"
     '        n: 0 = Standard (Ref: 750m, NRef: 750m)
@@ -781,7 +781,7 @@ Function initS200()
     '           4 = 200Hz
     laserStatus = "Setting the measurement mode..."
     cmdS200( "$MM,0" )
-    
+
     ' Set the Long range Scan mode
     '    "$LS,n"
     '        n: 0 = Do NOT report weaker targets
@@ -789,7 +789,7 @@ Function initS200()
     '           2 = Always report weaker
     laserStatus = "Setting the long range scan mode..."
     cmdS200( "$LS,2" )
-    
+
     ' Set the target mode
     '    "$DM,n"
     '        n: 2 = First target
@@ -801,7 +801,7 @@ Function initS200()
     '           8 = First, second, third, strongest, last targets
     laserStatus = "Setting the target mode..."
     cmdS200( "$DM,7" )
-    
+
     ' Write these settings into non-volatile memory
     laserStatus = "Writing to non volatile memory..."
     cmdS200( "$SU" )
@@ -821,22 +821,22 @@ End Function
 
 '----------------------------- sampleS200() -------------------------------
 ' This function is responsible for obtaining sampling measurements from
-' the Trusense S200 range finder. After issuing the start command, the 
-' function will sleep Until there Is input waiting from the S200.  Upon 
-' which, 3 lists are populated from the response strings of the S200.  An 
+' the Trusense S200 range finder. After issuing the start command, the
+' function will sleep Until there Is input waiting from the S200.  Upon
+' which, 3 lists are populated from the response strings of the S200.  An
 ' example of comms to/from the laser AND the datalogger is as follows:
-'   
+'
 '   To S200: $GO,m,n (m Is NOT required, but can be used)
 '     - Take n readings at m frequency, after discarding warmup readings
 '   To datalogger: $OK,crc
 '     - response confirmation
-'   To datalogger: 
+'   To datalogger:
 '     - Measurement reporting. # of responses = # of readings
 '     - Example: $DM,A,3.08,3.08,3.08,M,0,853.851*B056
 '
 Sub sampleS200()
   Dim i, count, response As String * 100, splitResponse(7) As String * 100
-  
+
   If openS200() Then
     ' Send the start command to the range finder
     cmdS200( "$GO," & nLaserSamples )
@@ -854,7 +854,7 @@ Sub sampleS200()
       SerialIn( response, Laserport, 100, 10, 100 )
       laserStatus = ( "Response(" & i & ")" & " : " & response )
       SplitStr( splitResponse, response, ",", 7, 7 )
-      
+
       If StrComp( splitResponse(1), "$DM" ) = 0 AND StrComp( splitResponse(2), "A" ) = 0 Then
         ' Data is good, assign it to respective variables
         raw_first(i) = splitResponse(3)
@@ -866,12 +866,12 @@ Sub sampleS200()
         raw_strongest(i) = -999
         raw_last(i) = -999
       EndIf
-    
+
     Next i
   Else
-    laserStatus = "Invalid response from laser." 
+    laserStatus = "Invalid response from laser."
   EndIf
-  
+
   closeS200()
 EndSub
 '-------------------------- End of sampleS200()----------------------------
@@ -883,9 +883,9 @@ EndSub
 ' updates the global variables.
 Sub processS200()
   Dim sum, nGoodVals, i
-  
+
   ' Average the first values based on good readings, ignores bad.
-  nGoodVals = nLaserSamples 
+  nGoodVals = nLaserSamples
   sum = 0
   For i = 1 To nLaserSamples Step 1
     Select Case raw_first(i)
@@ -894,11 +894,11 @@ Sub processS200()
       Case Else
         nGoodVals -= 1
     EndSelect
-  Next i 
-  If nGoodVals = 0 Then first = -999 Else first = ( sum / nGoodVals )  
+  Next i
+  If nGoodVals = 0 Then first = -999 Else first = ( sum / nGoodVals )
 
   ' Average the strongest values based on good readings, ignores bad.
-  nGoodVals = nLaserSamples 
+  nGoodVals = nLaserSamples
   sum = 0
   For i = 1 To nLaserSamples Step 1
     Select Case raw_strongest(i)
@@ -907,11 +907,11 @@ Sub processS200()
       Case Else
         nGoodVals -= 1
     EndSelect
-  Next i 
+  Next i
   If nGoodVals = 0 Then strongest = -999 Else strongest = ( sum / nGoodVals )
-  
+
   ' Average the last values based on good readings, ignores bad.
-  nGoodVals = nLaserSamples 
+  nGoodVals = nLaserSamples
   sum = 0
   For i = 1 To nLaserSamples Step 1
     Select Case raw_last(i)
@@ -920,14 +920,14 @@ Sub processS200()
       Case Else
         nGoodVals -= 1
     EndSelect
-  Next i 
+  Next i
   If nGoodVals = 0 Then last = -999 Else last = ( sum / nGoodVals )
-  
+
 EndSub
 '------------------------- End of processS200() ---------------------------
 
 '--------------------------- measRangeFinder() ----------------------------
-' Simplifies call to measure the Trusense range finder and process the 
+' Simplifies call to measure the Trusense range finder and process the
 ' results.  Keeps the mainProg calls simple and consistent.
 Sub measRangeFinder()
   laserStatus = "Measuring..."
@@ -978,11 +978,11 @@ Sub findPressureTransducer()
   Dim addresses(5) As String * 25, i, found
   Dim sensorsInfo(5) As String * 25
   found = 0
-  
+
   pressStatus = "Obtaining SDI12 addresses..."
   SDI12Recorder( addresses, pressPort, 0, "?!", 1.0, 0, -1, 1 )
   pressStatus = ( "Response: " & addresses )
-  
+
   'Store information responses, for up to 10 sensors
   pressStatus = ""
   For i = 1 To 5 Step 1
@@ -998,11 +998,11 @@ EndSub
 '--------------------- End of findPressureTransducer() --------------------
 
 '------------------------ initPressureTransducer() ------------------------
-' Makes sure the TROLL 700H is set to our preferences whenever the 
+' Makes sure the TROLL 700H is set to our preferences whenever the
 ' datalogger initializes (i.e. reboot, restart, power loss, etc...)
 Sub initPressureTransducer()
   Dim response As String * 25
-  
+
   ' Set the units for pressure
   ' Sends:   XPUnn!
   '             nn = 17; PSI
@@ -1016,7 +1016,7 @@ Sub initPressureTransducer()
   SDI12Recorder( response, pressPort, pressAddr, "XPU19!", 1, 0, 0 )
   SDI12Recorder( response, pressPort, pressAddr, "D0!", 1, 0, 0 )
   pressStatus = ( "Set units for Pressure, response: " & response )
-  
+
   ' Set the units for Temperature
   ' Sends:  XTUnn!
   '            nn = 01; 'C
@@ -1024,7 +1024,7 @@ Sub initPressureTransducer()
   SDI12Recorder( response, pressPort, pressAddr, "XTU01!", 1, 0, 0 )
   SDI12Recorder( response, pressPort, pressAddr, "D0!", 1, 0, 0 )
   pressStatus = ( "Set units for Temperature, response: " & response )
-  
+
   ' Set the units for level
   ' Sends: XLUnn!
   '           nn = 33; mm
@@ -1035,7 +1035,7 @@ Sub initPressureTransducer()
   SDI12Recorder( response, pressPort, pressAddr, "XLU34!", 1, 0, 0 )
   SDI12Recorder( response, pressPort, pressAddr, "D0!", 1, 0, 0 )
   pressStatus = ( "Set units for level, response: " & response )
-  
+
   ' Set the reporting mode for the level value
   ' Sends: XLMnn!
   '           nn = 03; depth
@@ -1052,7 +1052,7 @@ Sub initPressureTransducer()
   SDI12Recorder( response, pressPort, pressAddr, "XOPTL!", 1, 0, 0 )
   SDI12Recorder( response, pressPort, pressAddr, "D0!", 1, 0, 0, 0 )
   pressStatus = ( "Set output types/sequence, reponse: " & response )
-  
+
   pressStatus = ( "Troll 700H has been initialized." )
   pressStatus = ( "Off." )
 EndSub
@@ -1081,7 +1081,7 @@ Sub calibPressureTransducer()
   Delay( 0, 1100, 1 )
   SDI12Recorder( response, pressPort, pressAddr, "D0!", 1, 0, 0, 0 )
   pressStatus = ( "Pressure zeroed, reponse: " & response )
-  
+
   ' Set the level reference value in current units.
   ' Sends XLRpd.d!
   '            p = polarity sign ( + or - )
@@ -1102,7 +1102,7 @@ EndSub
 ' this subroutine just averages the good values reported to the datalogger.
 Sub procPressureTransducer()
   Dim i, sum As Float, nGoodVals
-  
+
   'Average the pressure readings from the Troll 700H
   sum = 0
   nGoodVals = nPressSamples
@@ -1113,15 +1113,15 @@ Sub procPressureTransducer()
       Case Else
         nGoodVals -= 1
     EndSelect
-  Next i 
-  
+  Next i
+
   ' Assign final values to the pressPress variable
   If nGoodVals = 0 Then
     pressPress = -999
   Else
     pressPress = sum / nGoodVals
   EndIf
-  
+
   'Average the temperature readings from the Troll 700H
   sum = 0
   nGoodVals = nPressSamples
@@ -1132,15 +1132,15 @@ Sub procPressureTransducer()
       Case Else
         nGoodVals -= 1
     EndSelect
-  Next i 
-  
+  Next i
+
   ' Assign final values to the pressPress variable
   If nGoodVals = 0 Then
     pressTemp = -999
   Else
     pressTemp = sum / nGoodVals
   EndIf
-  
+
   'Average the level readings from the Troll 700H
   sum = 0
   nGoodVals = nPressSamples
@@ -1151,8 +1151,8 @@ Sub procPressureTransducer()
       Case Else
         nGoodVals -= 1
     EndSelect
-  Next i 
-  
+  Next i
+
   ' Assign final values to the pressPress variable
   If nGoodVals = 0 Then
     pressLevel = -999
@@ -1171,17 +1171,17 @@ EndSub
 Sub measPressureTransducer()
   Dim i, response(3) As String * 25
   pressStatus = "Measuring..."
-  
+
   ' Send pairs of measure/read commands to the SDI Sensor
   For i = 1 To nPressSamples Step 1
     SDI12Recorder( response, pressPort, pressAddr, "M!", 1, 0, -1 )
-    SDI12Recorder( response, pressPort, pressAddr, "D!", 1, 0, -1 ) 
-    pressStatus = ( "Response(" & i & "): " & response )  
+    SDI12Recorder( response, pressPort, pressAddr, "D!", 1, 0, -1 )
+    pressStatus = ( "Response(" & i & "): " & response )
     raw_pressPress(i) = response(1)
     raw_pressTemp(i) = response(2)
     raw_pressLevel(i) = response(3)
-  Next i 
-  
+  Next i
+
   pressStatus = ( "Processing..." )
   procPressureTransducer()
   pressStatus = ( "Off." )
@@ -1197,7 +1197,7 @@ EndSub
 ' to the global variable for what was suppossed to be the average value.
 Sub procInclinometer()
   Dim sum As Float, nGoodVals, i
-   
+
   ' Average the good x angle values
   nGoodVals = nAngleSamples
   sum = 0
@@ -1209,7 +1209,7 @@ Sub procInclinometer()
         nGoodVals -= 1
     EndSelect
   Next i
-  
+
   'Assign final values for the x angle
   If nGoodVals = 0 Then
     ' No good values were recorded
@@ -1219,7 +1219,7 @@ Sub procInclinometer()
     ' mV range 500mv - 4500mV, 500mv = -90 degrees, 4500mV = 90 degrees
     x = ( ( ( sum / nGoodVals ) - 2500 ) / 2000 ) * 90
   EndIf
-   
+
   ' Average the good y angle values
   nGoodVals = nAngleSamples
   sum = 0
@@ -1231,7 +1231,7 @@ Sub procInclinometer()
         nGoodVals -= 1
     EndSelect
   Next i
-  
+
   ' Assign final values to the y angle
   If nGoodVals = 0 Then
     ' No good values were recorded
@@ -1241,7 +1241,7 @@ Sub procInclinometer()
     ' mV range 500mv - 4500mV, 500mv = -90 degrees, 4500mV = 90 degrees
     y = ( ( ( sum / nGoodVals ) - 2500 ) / 2000 ) * 90
   EndIf
-  
+
 EndSub
 '----------------------- End of procInclinometer() ------------------------
 
@@ -1249,11 +1249,11 @@ EndSub
 ' Takes analog measurements related to x and y angles.  Will convert mV
 ' into the appropriate degree angle via processing.
 Sub measInclinometer()
-  
+
   ' Acquire nAngleSamples signals for the x angle.
   inclinStatus = "Obtaining x angle values."
   VoltSe( raw_x, nAngleSamples, mV5000, -xPort, 1, 0, 250, 1.0, 0 )
-  
+
   ' Acquire nAngleSamples signals for the y angle.
   inclinStatus = "Obtaining y angle values."
   VoltSe( raw_y, nAngleSamples, mV5000, -yPort, 1, 0, 250, 1.0, 0 )
@@ -1261,7 +1261,7 @@ Sub measInclinometer()
   ' Average the good data acquired from the sensor
   inclinStatus = "Process angle measurements."
   procInclinometer()
-  
+
   inclinStatus = "Off."
 EndSub
 '----------------------- End of measInclinometer() ------------------------
@@ -1272,7 +1272,7 @@ EndSub
 
 '============================ Main Functions ==============================
 '----------------------------- initSensors() ------------------------------
-' Call to initialize all neccessary sensors on startup or reboot of the 
+' Call to initialize all neccessary sensors on startup or reboot of the
 ' datalogger.  This makes sure that if any settings were stored in flash
 ' memory for a sensor, the sensors will retain our preferences by being
 ' itialized.
@@ -1291,20 +1291,20 @@ Sub measSensors()
   sysStatus = "Recording panel temp and battery voltage..."
   PanelTemp( PTemp, 250 )  ' Get/store panel temperature
   Battery( batt_volt )     ' Get/store battery voltage
-  
+
   sysStatus = "Powering/warming up peripheral sensors..."
   SW12( SW12_1, 1 )
   Delay( 0, 2, 2 )
 
   sysStatus = "Getting range finder data..."
   measRangeFinder()
-  
+
   sysStatus = "Getting pressure trandsucer data..."
-  measPressureTransducer()  
-  
+  measPressureTransducer()
+
   sysStatus = "Getting angles of inclination..."
   measInclinometer()
-  
+
   'Return the peripheral sensors To their default state.
   SW12( SW12_1, 0 )
 EndSub
@@ -1313,30 +1313,30 @@ EndSub
 '----------------------------- Main Program -------------------------------
 BeginProg
   'Place tasks her to perform on every single startup/reboot of the logger.
-  sysStatus = "Completing on startup tasks." 
+  sysStatus = "Completing on startup tasks."
   initSensors()
   openIridium()
   syncTimestamp()
   closeIridium()
   sysStatus = "On startup tasks completed."
-  
+
   ' Troubleshooting or other one time use functions should be used here
-  ' Uncomment/comment commands as needed. for example the pressure 
+  ' Uncomment/comment commands as needed. for example the pressure
   ' transducer should only be calibrated 1x on setup not on every startup.
   ' So make sure to recomment out commands after using them  and reupload
-  ' or each will be performed on every startup of the datalogger. 
+  ' or each will be performed on every startup of the datalogger.
   ' Examples:
   '  findPressureTransducer()    'You should update pressAddr constant as needed (global)
   '  addrPressureTransducer(0,2) 'Update pressAddr constant after changing sdi address
   '  calibPressureTransducer()   'Make sure settings are correct when doing this
-  
+
   ' Check to see if measurements are to be conducted or messages sent.
   Scan( 1, min, 0, 0 )
     ' Update time in order to assess the day of the year.
     RealTime( rTime )
-    
+
     ' Check to see if measurements are to be made
-    If Day_of_Year <= CloseDate AND Day_of_Year >= OpenDate Then 
+    If Day_of_Year <= CloseDate AND Day_of_Year >= OpenDate Then
       If TimeIntoInterval( 0, measInterval, min ) OR forceRead = 1 Then
         sysStatus = "Measuring sensors..."
         measSensors()
@@ -1344,8 +1344,8 @@ BeginProg
         CallTable rawMeasurements
         CallTable hourtab
         forceRead = 0            ' Return to default state
-      EndIf   
-    
+      EndIf
+
       ' Check to see if an ISBD message should be sent
       If TimeIntoInterval( 1, sendInterval, min ) OR forceMessage = 1 Then
         sysStatus = "Sending an ISBD message."
@@ -1355,17 +1355,17 @@ BeginProg
         sysStatus = "Attempting to send the ISBD message again..."
         msgSuccess = sendMessage()
       EndIf
-      
+
     EndIf
-    sysStatus = "Standby..."   
+    sysStatus = "Standby..."
   NextScan
-  
-  SlowSequence 
-  ' Update system time with satellite (if possible) 
-  ' during non-measurement times of year. Should 
+
+  SlowSequence
+  ' Update system time with satellite (if possible)
+  ' during non-measurement times of year. Should
   ' resolve the issue of not "waking up."
   Scan( 6, hr, 0, 0 )
-    If Day_of_Year >= CloseDate AND Day_of_Year <= OpenDate Then 
+    If Day_of_Year >= CloseDate AND Day_of_Year <= OpenDate Then
       sysStatus = "Sycning time with satellite..."
       openIridium()
       syncTimestamp()
@@ -1373,7 +1373,7 @@ BeginProg
     EndIf
     sysStatus = "Standby..."
   NextScan
-  
+
 EndProg
 '------------------------- End of Main Program ----------------------------
 '======================== End of Main Functions ===========================
