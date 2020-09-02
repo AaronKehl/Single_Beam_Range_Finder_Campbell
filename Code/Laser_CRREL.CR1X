@@ -233,7 +233,7 @@ Sub updateTimestamp( val As String )
   ' loops through the years and subtracts the number of days of that
   ' calendar year from the days since the epoch (adjusted to 2015)
   ' until it tries to go negative.  Then the current year has been found
-  While found = 0 & count < 1000
+  While found = 0 And count < 1000
     'Update days in the year based on which year we are evaluating
     If isLeapYear( utcYear ) Then
       days_in_year = 366
