@@ -157,6 +157,91 @@ Function toLong( floatval As Float, decimalPlaces )
 End Function
 '---------------------- End of toLong( Float, INT ) -----------------------
 
+'------------------------- dblPow( float, float ) -------------------------
+' This function returns a double value number.  The "^" or PWR function Only
+' can return a float value, which is overloaded to NAN when using the 8 byte
+' number during time-syncing via ISBD
+'
+' INPUTS: base = the base number in floating point format
+'     exponent = the power that the base will be raised to.
+' OUTPUT: result = A double precision floating point number
+'
+Function dblPow( base As Float, exponent As Float)
+  Dim i, result As Double
+  result = base
+
+  For i = 2 to exponent Step 1
+    result *= base
+  Next i
+
+  Return( result )
+End Function
+'---------------------------- End of dblPow() -----------------------------
+
+'-------------------------- toDecimal( String ) ---------------------------
+' This function takes in a hexadecimal string and converts it to a decimal.
+' The build in HexToDec() function interprets the value as two's complement,
+' so sometimes an epoch will be decoded as (-) using the built in function.
+'
+' This function will not interpret the hexadecimal string as two's comp.
+'
+' INPUTS: hex_value = Hexadecimal string (frames since epoch, generally)
+' OUTPUTS: decmial_value = decimal representation of hex number
+'
+Function toDecimal( hex_value as String )
+  'Declare variables local to this function, only initializes 1x on startup.
+  Dim val As String, bytes, decimal_pos, decimal_value As Double, i
+
+  'reset variables to initial value, every time this function is called.
+  bytes = Len( Trim( hex_value ) )
+  decimal_value = 0.0
+  decimal_pos = bytes - 1
+
+  For i = 1 to bytes Step 1
+    val = Mid( hex_value, i, 1 )
+
+    Select Case val
+      Case 1
+        decimal_value += 1 * dblPow( 16, decimal_pos )
+      Case 2
+        decimal_value += 2 * dblPow( 16, decimal_pos )
+      Case 3
+        decimal_value += 3 * dblPow( 16, decimal_pos )
+      Case 4
+        decimal_value += 4 * dblPow( 16, decimal_pos )
+      Case 5
+        decimal_value += 5 * dblPow( 16, decimal_pos )
+      Case 6
+        decimal_value += 6 * dblPow( 16, decimal_pos )
+      Case 7
+        decimal_value += 7 * dblPow( 16, decimal_pos )
+      Case 8
+        decimal_value += 8 * dblPow( 16, decimal_pos )
+      Case 9
+        decimal_value += 9 * dblPow( 16, decimal_pos )
+      Case "A", "a"
+        decimal_value += 10 * dblPow( 16, decimal_pos )
+      Case "B", "b"
+        decimal_value += 11 * dblPow( 16, decimal_pos )
+      Case "C", "c"
+        decimal_value += 12 * dblPow( 16, decimal_pos )
+      Case "D", "d"
+        decimal_value += 13 * dblPow( 16, decimal_pos )
+      Case "E", "e"
+        decimal_value += 14 * dblPow( 16, decimal_pos )
+      Case "F", "f"
+        decimal_value += 15 * dblPow( 16, decimal_pos )
+      Case Else
+        decimal_value += 0
+    EndSelect
+
+    decimal_pos -= 1
+  Next i
+
+  return( decimal_value )
+End Function
+'------------------------- End of toDecimal() -----------------------------
+
 '--------------------------- isLeapYear( INT ) ----------------------------
 ' This function will determine whether it is a leap year or not.
 '
@@ -197,7 +282,7 @@ Sub updateTimestamp( val As String )
   Dim utcUSecond As Float, count
 
   'Process the number of 90ms frames from the epoch into 1s frames
-  frames_since_epoch = HexToDec( val )
+  frames_since_epoch = toDecimal( val )
   frames_since_epoch = frames_since_epoch * 0.09
 
   'Calculate time of day from 90ms frames
