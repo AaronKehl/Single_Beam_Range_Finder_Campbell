@@ -1216,8 +1216,8 @@ Sub procInclinometer()
     x = -999
   Else
     ' Scale the milliVolt reading to the corresponding degree value
-    ' mV range 500mv - 4500mV, 500mv = -90 degrees, 4500mV = 90 degrees
-    x = ( ( ( sum / nGoodVals ) - 2500 ) / 2000 ) * 90
+    ' mV range 500mv - 4500mV, 500mv = 90 degrees, 4500mV = -90 degrees
+    x = ( ( ( sum / nGoodVals ) - 2500 ) / 2000 ) * -90
   EndIf
 
   ' Average the good y angle values
@@ -1238,8 +1238,8 @@ Sub procInclinometer()
     y = -999
   Else
     ' Scale the milliVolt reading to the corresponding degree value
-    ' mV range 500mv - 4500mV, 500mv = -90 degrees, 4500mV = 90 degrees
-    y = ( ( ( sum / nGoodVals ) - 2500 ) / 2000 ) * 90
+    ' mV range 500mv - 4500mV, 500mv = 90 degrees, 4500mV = -90 degrees
+    y = ( ( ( sum / nGoodVals ) - 2500 ) / 2000 ) * -90
   EndIf
 
 EndSub
