@@ -10,7 +10,7 @@ Hardware Dependencies:
 6. 12V Power Supply/Source
 
 Optional Hardware:
-1. Level Troll-400H Pressure Transducer
+1. Level Troll-700H Pressure Transducer
 2. Camera
 
 Software Dependencies:
@@ -19,4 +19,4 @@ Software Dependencies:
 
 Optional Software:
 1. Trusense S200 GUI/Interface
-2. Level Troll-400H GUI/Interface
+2. Level Troll-700H GUI/Interface
