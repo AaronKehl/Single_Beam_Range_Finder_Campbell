@@ -32,10 +32,10 @@
 '================================ Setup ===================================
 '-------------------------- Global Variables ------------------------------
 'System Variables for Public tracking
-Public sysStatus As String * 60
-Public iridStatus As String * 60
-Public laserStatus As String * 60
-Public inclinStatus As String * 60
+Public sysStatus As String * 100
+Public iridStatus As String * 100
+Public laserStatus As String * 100
+Public inclinStatus As String * 100
 Public pressStatus As String * 250
 Public ISBD_Message_BIN As String * 300
 Public ISBD_Message_HEX As String * 300
@@ -45,8 +45,8 @@ Public ISBD_Message_ASCII As String * 500
 Public forceRead, forceMessage, PTemp As Float, batt_volt As Float
 Const measInterval = 15        'Time interval to take measurements [min]
 Const sendInterval = 60        'Time interval to send ISBD messages [min]
-Const OpenDate = 91            'April 1
-Const CloseDate = 304          'Oct 31
+Const OpenDate = 01            '01 = Jan 1, 91 = April 1
+Const CloseDate = 366          '366 = Dec 31, 304 = Oct 31
 Public rTime(9)                'declare as public and dimension rTime to 9
 Alias rTime(1) = Year          'assign the alias Year to rTime(1)
 Alias rTime(2) = Month         'assign the alias Month to rTime(2)
@@ -551,13 +551,26 @@ End Function
 Function syncTimestamp()
   '-MSSTM to obtain satelite time, not +CCLK to obtain modem system time.
   Dim outStr As String = ( "AT-MSSTM" & CHR(13) )
-  Dim response As String * 100
+  Dim response As String * 100, count
+  count = 0
 
   If SerialOut( Iridiumport, outStr, "", 5, 100 ) <> 0 Then
-    SerialIn( response, Iridiumport, 500, 0, 25 )
-    iridStatus = response
+    SerialIn( response, Iridiumport, 500, 0, 29 )
 
-    If StrComp( response, "-MSSTM:no network service" ) <> 0 Then
+    ' Try to sync the time up to 5x, if it has no network.
+    While( InStr( 1, response, "no network", 2 ) <> 0 AND count <= 4 )
+
+      If  SerialOut( Iridiumport, outStr, "", 5, 100 ) <> 0 Then
+        SerialIn( response, Iridiumport, 500, 0, 29 )
+      EndIf
+
+      Delay( 0, 3, 2 )
+      count += 1
+    Wend
+
+    ' If the response still says no network, we cannot sync the time right now.
+    ' Otherwise, extract the frames since epoch from the response string.
+    If InStr( 1, response, "no network", 2 ) = 0 Then
       SplitStr( response, response, ":", 1, 8 )
       updateTimestamp( response )
       iridStatus = "Successfully synced system time of day with satellite."
