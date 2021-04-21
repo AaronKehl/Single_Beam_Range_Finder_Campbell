@@ -969,7 +969,7 @@ Sub sampleS200()
 
       'A small delay to make sure the next data is available
       count = 0
-      While( SerialInChk( Laserport ) = 0 AND count < 300 )
+      While( i < nLaserSamples AND SerialInChk( Laserport ) = 0 AND count < 300 )
         'Do nothing, continue to wait until a max of timeout for activity
         Delay( 0, 10, 1 )  'delay for 10[ms], up to a total of 3s
         count += 1
