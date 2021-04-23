@@ -71,6 +71,8 @@ Public msgSuccess = 1          'Helps to decide if messages should be retried
 Const Laserport = ComC1        'Datalogger's control ports C1 (TX) & C2 (RX)
 Const nWarmup = 20             'number of warmup readings before recording
 Const nLaserSamples = 50       'number of samples per reading, after warmup
+Public minTarget = 0           '[m] minimum acceptable target reading
+Public maxTarget = 750         '[m] maximum acceptable target reading
 Public raw_first( nLaserSamples ) As Float
 Public raw_strongest( nLaserSamples ) As Float
 Public raw_last( nLaserSamples ) As Float
@@ -988,48 +990,57 @@ EndSub
 ' Proccesses the raw data for first, strongest, and last values taken
 ' by the Trusense S200 range finder.  Bad values are filtered out
 ' and currently this subroutine just averages the good data points and
-' updates the global variables.
+' updates the global variables. Kept averaging, but am transmitting median now.
 Sub processS200()
-  Dim sum, nGoodVals, i
-
+  Dim sum, nGoodVals, i, sorted( nLaserSamples ) As Float
+  
   ' Average the first values based on good readings, ignores bad.
   nGoodVals = nLaserSamples
   sum = 0
   For i = 1 To nLaserSamples Step 1
     Select Case raw_first(i)
-      Case Is > 0 AND < 999999
+      Case Is > minTarget AND < maxTarget
         sum += raw_first(i)
       Case Else
         nGoodVals -= 1
     EndSelect
   Next i
-  If nGoodVals = 0 Then first = -999 Else first = ( sum / nGoodVals )
+  
+  'Updated to transmit median, like old code. No filtering on median.
+  SortSpa( sorted, nLaserSamples, raw_first )
+  If nGoodVals = 0 Then first = -999 Else first = sorted( INT( nLaserSamples / 2 ) ) '( sum / nGoodVals )
 
   ' Average the strongest values based on good readings, ignores bad.
   nGoodVals = nLaserSamples
   sum = 0
   For i = 1 To nLaserSamples Step 1
     Select Case raw_strongest(i)
-      Case Is > 0 AND < 999999
+      Case Is > minTarget AND < maxTarget
         sum += raw_strongest(i)
       Case Else
         nGoodVals -= 1
     EndSelect
   Next i
-  If nGoodVals = 0 Then strongest = -999 Else strongest = ( sum / nGoodVals )
+  
+  'Updated to transmit median, like old code. No filtering on median.
+  SortSpa( sorted, nLaserSamples, raw_strongest )
+  If nGoodVals = 0 Then strongest = -999 Else strongest = sorted( INT( nLaserSamples / 2 ) ) '( sum / nGoodVals )
 
   ' Average the last values based on good readings, ignores bad.
   nGoodVals = nLaserSamples
   sum = 0
   For i = 1 To nLaserSamples Step 1
     Select Case raw_last(i)
-      Case Is > 0 AND < 999999
+      Case Is > minTarget AND < maxTarget
         sum += raw_last(i)
       Case Else
         nGoodVals -= 1
     EndSelect
   Next i
-  If nGoodVals = 0 Then last = -999 Else last = ( sum / nGoodVals )
+  
+  'Updated to transmit median, like old code. No filtering on median.
+  SortSpa( sorted, nLaserSamples, raw_last )
+  If nGoodVals = 0 Then last = -999 Else last = sorted( INT( nLaserSamples / 2 ) ) '( sum / nGoodVals )
 
 EndSub
 '------------------------- End of processS200() ---------------------------
