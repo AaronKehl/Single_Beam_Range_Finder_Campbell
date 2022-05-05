@@ -1484,11 +1484,20 @@ BeginProg
   ' during non-measurement times of year. Should
   ' resolve the issue of not "waking up."
   Scan( 6, hr, 0, 0 )
-    If Day_of_Year >= CloseDate AND Day_of_Year <= OpenDate Then
-      sysStatus = "Sycning time with satellite..."
-      openIridium()
-      syncTimestamp()
-      closeIridium()
+    If Day_of_Year >= CloseDate OR Day_of_Year <= OpenDate Then
+      'Added system voltage check, will only timesync on station boot
+      'or when voltage is > 11.8V (sufficient charge to not damage battery)
+      Battery( batt_volt )
+      sysStatus = ( "Station Voltage [V]: " & batt_volt )
+      Delay( 0, 4, 2 )
+      
+      'If there is sufficient voltage to sync the timestamp, let's do it.
+      If batt_volt > 11.8 Then
+        sysStatus = "Sycning time with satellite..."
+        openIridium()
+        syncTimestamp()
+        closeIridium()
+      EndIf
     EndIf
     sysStatus = "Standby..."
   NextScan
