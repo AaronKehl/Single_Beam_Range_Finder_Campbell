@@ -993,7 +993,7 @@ EndSub
 ' updates the global variables. Kept averaging, but am transmitting median now.
 Sub processS200()
   Dim sum, nGoodVals, i, sorted( nLaserSamples ) As Float
-  
+
   ' Average the first values based on good readings, ignores bad.
   nGoodVals = nLaserSamples
   sum = 0
@@ -1005,7 +1005,7 @@ Sub processS200()
         nGoodVals -= 1
     EndSelect
   Next i
-  
+
   'Updated to transmit median, like old code. No filtering on median.
   SortSpa( sorted, nLaserSamples, raw_first )
   If nGoodVals = 0 Then first = -999 Else first = sorted( INT( nLaserSamples / 2 ) ) '( sum / nGoodVals )
@@ -1021,7 +1021,7 @@ Sub processS200()
         nGoodVals -= 1
     EndSelect
   Next i
-  
+
   'Updated to transmit median, like old code. No filtering on median.
   SortSpa( sorted, nLaserSamples, raw_strongest )
   If nGoodVals = 0 Then strongest = -999 Else strongest = sorted( INT( nLaserSamples / 2 ) ) '( sum / nGoodVals )
@@ -1037,7 +1037,7 @@ Sub processS200()
         nGoodVals -= 1
     EndSelect
   Next i
-  
+
   'Updated to transmit median, like old code. No filtering on median.
   SortSpa( sorted, nLaserSamples, raw_last )
   If nGoodVals = 0 Then last = -999 Else last = sorted( INT( nLaserSamples / 2 ) ) '( sum / nGoodVals )
@@ -1490,10 +1490,10 @@ BeginProg
       Battery( batt_volt )
       sysStatus = ( "Station Voltage [V]: " & batt_volt )
       Delay( 0, 4, 2 )
-      
+
       'If there is sufficient voltage to sync the timestamp, let's do it.
-      If batt_volt > 11.8 Then
-        sysStatus = "Sycning time with satellite..."
+      If batt_volt > 12.4 Then
+        sysStatus = "Syncing time with satellite..."
         openIridium()
         syncTimestamp()
         closeIridium()
