@@ -45,8 +45,8 @@ Public ISBD_Message_ASCII As String * 500
 Public forceRead, forceMessage, PTemp As Float, batt_volt As Float
 Const measInterval = 15        'Time interval to take measurements [min]
 Const sendInterval = 60        'Time interval to send ISBD messages [min]
-Const OpenDate = 91            '01 = Jan 1, 91 = April 1
-Const CloseDate = 304          '366 = Dec 31, 304 = Oct 31
+Const OpenDate = 120           '01 = Jan 1, 120 = Apr 30
+Const CloseDate = 274          '366 = Dec 31, 274 = Oct 1
 Public rTime(9)                'declare as public and dimension rTime to 9
 Alias rTime(1) = Year          'assign the alias Year to rTime(1)
 Alias rTime(2) = Month         'assign the alias Month to rTime(2)
